@@ -6,6 +6,8 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.Arrays;
+import java.util.Collections;
 import javax.validation.ConstraintValidatorContext;
 import javax.validation.ConstraintValidatorContext.ConstraintViolationBuilder;
 import org.hibernate.validator.constraintvalidation.HibernateConstraintValidatorContext;
@@ -60,11 +62,24 @@ public class PhoneValidatorTest {
     }
 
     @Test
+    public void collectionOfInvalidNumberShouldFail() {
+        checkResult(Arrays.asList("305", "305 509-6995"), false);
+    }
+
+    @Test
     public void countryCodeShouldBeApplied() {
         Phone phone = mock(Phone.class);
         when(phone.defaultRegion()).thenReturn("US");
         instance.initialize(phone);
         checkResult("305 509-6995",true);
+    }
+
+    @Test
+    public void countryCodeShouldBeAppliedInCollections() {
+        Phone phone = mock(Phone.class);
+        when(phone.defaultRegion()).thenReturn("US");
+        instance.initialize(phone);
+        checkResult(Collections.singletonList("305 509-6995"), true);
     }
 
     @Test
@@ -80,7 +95,17 @@ public class PhoneValidatorTest {
         checkResult("+598 99 123 123", true);
     }
 
-    private void checkResult(String phone, boolean isValid) {
+    @Test
+    public void collectionOfValidNumberSholdPass() {
+        checkResult(Arrays.asList("+1 305 509-6995", "+598 99 123 123"), true);
+    }
+
+    @Test
+    public void collectionOfValidAndInvalidNumbersSholdFail() {
+        checkResult(Arrays.asList("+1 305 509-6995", "99 123 123"), false);
+    }
+
+    private void checkResult(Object phone, boolean isValid) {
         assertThat(instance.isValid(phone, constraintValidatorContext), is(isValid));
 
 //        if (!isValid) {
