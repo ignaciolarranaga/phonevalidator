@@ -1,12 +1,16 @@
 package com.ignaciolarranaga.phonevalidator;
 
+import static java.util.Collections.singletonList;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import javax.validation.ConstraintValidatorContext;
 import javax.validation.ConstraintValidatorContext.ConstraintViolationBuilder;
@@ -48,22 +52,22 @@ public class PhoneValidatorTest {
 
     @Test
     public void nullShouldPass() {
-        checkResult(null, true);
+        checkResult(null, true, Collections.<String>emptyList());
     }
 
     @Test
     public void invalidNumberShouldFail() {
-        checkResult("305", false);
+        checkResult("305", false, singletonList("305"));
     }
 
     @Test
     public void invalidNumberBecauseOfCountryCodeShouldFail() {
-        checkResult("305 509-6995",false);
+        checkResult("305 509-6995",false, singletonList("305 509-6995"));
     }
 
     @Test
     public void collectionOfInvalidNumberShouldFail() {
-        checkResult(Arrays.asList("305", "305 509-6995"), false);
+        checkResult(Arrays.asList("305", "305 509-6995"), false, Arrays.asList("305", "305 509-6995"));
     }
 
     @Test
@@ -71,7 +75,7 @@ public class PhoneValidatorTest {
         Phone phone = mock(Phone.class);
         when(phone.defaultRegion()).thenReturn("US");
         instance.initialize(phone);
-        checkResult("305 509-6995",true);
+        checkResult("305 509-6995",true, Collections.<String>emptyList());
     }
 
     @Test
@@ -79,7 +83,7 @@ public class PhoneValidatorTest {
         Phone phone = mock(Phone.class);
         when(phone.defaultRegion()).thenReturn("US");
         instance.initialize(phone);
-        checkResult(Collections.singletonList("305 509-6995"), true);
+        checkResult(singletonList("305 509-6995"), true, Collections.<String>emptyList());
     }
 
     @Test
@@ -87,33 +91,37 @@ public class PhoneValidatorTest {
         Phone phone = mock(Phone.class);
         when(phone.defaultRegion()).thenReturn("UY");
         instance.initialize(phone);
-        checkResult("099 123 123",true);
+        checkResult("099 123 123",true, Collections.<String>emptyList());
     }
 
     @Test
     public void validNumberSholdPass() {
-        checkResult("+598 99 123 123", true);
+        checkResult("+598 99 123 123", true, Collections.<String>emptyList());
     }
 
     @Test
     public void collectionOfValidNumberSholdPass() {
-        checkResult(Arrays.asList("+1 305 509-6995", "+598 99 123 123"), true);
+        checkResult(Arrays.asList("+1 305 509-6995", "+598 99 123 123"), true, Collections.<String>emptyList());
     }
 
     @Test
     public void collectionOfValidAndInvalidNumbersSholdFail() {
-        checkResult(Arrays.asList("+1 305 509-6995", "99 123 123"), false);
+        checkResult(Arrays.asList("+1 305 509-6995", "99 123 123"), false, singletonList("99 123 123"));
     }
 
-    private void checkResult(Object phone, boolean isValid) {
+    private void checkResult(Object phone, boolean isValid, Collection<String> invalidPhones) {
         assertThat(instance.isValid(phone, constraintValidatorContext), is(isValid));
 
-//        if (!isValid) {
-//            verify(constraintValidatorContext.unwrap(HibernateConstraintValidatorContext.class));
-//            verify(hibernateConstraintValidatorContext.addExpressionVariable("phone", phone));
-//            verify(hibernateConstraintValidatorContext.buildConstraintViolationWithTemplate(SAMPLE_MESSAGE_TEMPLATE));
-//            verify(constraintViolationBuilder.addConstraintViolation());
-//        }
+        if (!isValid) {
+            verify(constraintValidatorContext, times(invalidPhones.size()))
+                    .unwrap(HibernateConstraintValidatorContext.class);
+            for (String invalidPhone : invalidPhones) {
+                verify(hibernateConstraintValidatorContext).addExpressionVariable("phone", invalidPhone);
+            }
+            verify(hibernateConstraintValidatorContext, times(invalidPhones.size()))
+                    .buildConstraintViolationWithTemplate(SAMPLE_MESSAGE_TEMPLATE);
+            verify(constraintViolationBuilder, times(invalidPhones.size())).addConstraintViolation();
+        }
     }
 
 }
